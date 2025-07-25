@@ -27,7 +27,7 @@ def ensure_context():
             ts.SCHEME_TYPE.CKKS,
             poly_modulus_degree=8192,
             coeff_mod_bit_sizes=[60, 40, 40, 60]
-        )
+        ) #default conteext with p = 200
         context.generate_galois_keys()
         context.global_scale = 2**40
 
