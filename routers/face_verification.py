@@ -23,6 +23,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s"
 )
 
+COSINE_THRESHOLD = 0.5
 
 router = APIRouter(tags=["Verification Operations"])
 SERVER_URL = os.getenv("SERVER_URL")
@@ -169,7 +170,7 @@ async def verify_face(
 
         server_data["highest_similarity"] = highest_similarity if highest_similarity != float("-inf") else None
         server_data["best_match"] = best_match
-        server_data["match_found"] = bool(best_match and highest_similarity > 0.5) #cosine threshold set over here
+        server_data["match_found"] = bool(best_match and highest_similarity > COSINE_THRESHOLD)
 
         return server_data
 

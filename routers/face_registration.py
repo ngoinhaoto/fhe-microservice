@@ -8,6 +8,7 @@ import requests
 import os
 import cv2
 from deepface import DeepFace
+import tempfile # Import tempfile for secure temporary file creation
 
 router = APIRouter()
 SERVER_URL = os.getenv("SERVER_URL")
@@ -17,10 +18,15 @@ async def register_face(
     user_id: str = Form(...),
     file: UploadFile = File(...)
 ):
-    temp_path = f"/tmp/{file.filename}"
-    with open(temp_path, "wb") as f:
-        f.write(await file.read())
+    temp_path: str = None # Initialize temp_path to None
     try:
+        # Use tempfile.NamedTemporaryFile for secure temporary file creation
+        # delete=False means we manually delete it in the finally block
+        # suffix ensures it has a .jpg extension for DeepFace
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+            temp_file.write(await file.read())
+            temp_path = temp_file.name # Get the actual path of the temporary file
+
         # Step 1: Face detection
         img = cv2.imread(temp_path)
         if img is None:
@@ -58,7 +64,10 @@ async def register_face(
                 detail=f"Incomplete face detected: {error_message}. Please ensure your entire face is visible and centered in the frame."
             )
 
-
+        # Step 3: Anti-spoofing check
+        # It's more efficient to do anti-spoofing in the same DeepFace.extract_faces call
+        # if possible, or ensure this call also handles face detection.
+        # For now, keeping it as a separate call as per your original logic.
         anti_spoof_faces = DeepFace.extract_faces(
             img_path=temp_path,
             anti_spoofing=True
@@ -75,22 +84,29 @@ async def register_face(
                 detail="Potential spoofing detected. Please use a real face for registration."
             )
           
-
-        # Step 4: Extract embedding and register
+        # Step 4: Extract embedding and encrypt with TenSEAL
         embedding = extract_embedding(temp_path)
         embedding_np = np.array(embedding, dtype=np.float32)
-        context = load_secret_context()
+        
+        # Load secret context (consider loading this once globally if static)
+        context = load_secret_context() 
+        
         enc_vec = ts.ckks_vector(context, embedding_np)
-        enc_bytes = enc_vec.serialize()
+        enc_bytes = enc_vec.serialize() # TenSEAL's built-in serialization
+
+        # Step 5: Send encrypted embedding to the server
         files = {'file': ('embedding.bin', enc_bytes)}
         data = {'user_id': user_id}
 
         resp = requests.post(f"{SERVER_URL}/fhe/store-encrypted-embedding/", data=data, files=files)
-        resp.raise_for_status()
+        resp.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
         return resp.json()
     except HTTPException:
-        raise
+        raise # Re-raise HTTPException directly
     except Exception as e:
+        # Catch any other unexpected errors and return a 500
         raise HTTPException(status_code=500, detail=f"Registration failed: {e}")
     finally:
-        os.remove(temp_path)
+        # Ensure the temporary file is deleted
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
