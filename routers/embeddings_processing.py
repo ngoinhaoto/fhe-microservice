@@ -13,19 +13,6 @@ MAIN_SERVER_URL = os.getenv("SERVER_URL") + "/api/face/register-embedding/"
 
 router = APIRouter()
 
-@router.post("/register-embedding/")
-async def register_embedding(user_id: str = Form(...), file: UploadFile = File(...)):
-    encrypted_data = await file.read()
-    # Forward to main server
-    files = {'file': ('embedding.bin', encrypted_data)}
-    data = {'user_id': user_id}
-    try:
-        response = requests.post(MAIN_SERVER_URL, data=data, files=files)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to forward embedding: {e}")
-
 @router.post("/encrypt")
 async def encrypt_embedding(file: UploadFile = File(...)):
     embedding_bytes = await file.read()

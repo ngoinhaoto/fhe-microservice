@@ -23,7 +23,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s"
 )
 
-COSINE_THRESHOLD = 0.5
+COSINE_THRESHOLD = 0.55
 
 router = APIRouter(tags=["Verification Operations"])
 SERVER_URL = os.getenv("SERVER_URL")

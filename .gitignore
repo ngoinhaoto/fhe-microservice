@@ -1,3 +1,4 @@
 microservice-env/
 .env
 context/
+*.pyc
